@@ -23,7 +23,6 @@ interface Transaction {
   datetime: Date;
   category?: string;
   import_name?: string;
-  user_id?: string;
 }
 
 interface Category {
@@ -104,17 +103,10 @@ const Index = () => {
   // Save transactions mutation
   const saveTransactionsMutation = useMutation({
     mutationFn: async (transactions: Transaction[]) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-
       const { error } = await supabase.from("transactions").insert(
         transactions.map(t => ({
           ...t,
           import_name: importName,
-          user_id: user.id,
           datetime: t.datetime.toISOString(), // Convert Date to ISO string
         }))
       );
@@ -137,29 +129,6 @@ const Index = () => {
         variant: "destructive",
       });
       console.error("Error saving transactions:", error);
-    },
-  });
-
-  // Update transaction mutation
-  const updateTransactionMutation = useMutation({
-    mutationFn: async (transaction: Transaction) => {
-      const { error } = await supabase
-        .from("transactions")
-        .update({ import_name: transaction.import_name })
-        .eq("id", transaction.id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to update transaction",
-        variant: "destructive",
-      });
-      console.error("Error updating transaction:", error);
     },
   });
 
