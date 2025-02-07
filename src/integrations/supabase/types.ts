@@ -61,7 +61,6 @@ export type Database = {
           import_id: string | null
           recipient: string
           user_id: string | null
-          category: string | null
         }
         Insert: {
           amount: number
@@ -72,7 +71,6 @@ export type Database = {
           import_id?: string | null
           recipient: string
           user_id?: string | null
-          category?: string | null
         }
         Update: {
           amount?: number
@@ -83,7 +81,6 @@ export type Database = {
           import_id?: string | null
           recipient?: string
           user_id?: string | null
-          category?: string | null
         }
         Relationships: [
           {

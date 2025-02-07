@@ -481,7 +481,6 @@ const Index = () => {
                       <ArrowUpDown className="h-4 w-4" />
                     </Button>
                   </th>
-                  <th className="p-4 text-left">Import Name</th>
                   <th className="p-4 text-left">
                     <Button
                       variant="ghost"
@@ -509,7 +508,6 @@ const Index = () => {
                     <td className="p-4">
                       {transaction.datetime.toLocaleString()}
                     </td>
-                    <td className="p-4">{transaction.import_name}</td>
                     <td className="p-4">
                       <Select
                         value={transaction.category}
