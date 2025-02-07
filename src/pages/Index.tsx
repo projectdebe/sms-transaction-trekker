@@ -52,6 +52,33 @@ const Index = () => {
     setCategories(data);
   };
 
+  const parseSMS = (text: string): Transaction[] => {
+    const lines = text.split('\n').filter(line => line.trim());
+    const parsedTransactions: Transaction[] = [];
+
+    for (const line of lines) {
+      // Example pattern: Looking for amount, recipient, and transaction code
+      const amountMatch = line.match(/\$?\d+(\.\d{2})?/);
+      const recipientMatch = line.match(/(?:to|at|for)\s+([A-Za-z0-9\s&]+)/i);
+      const codeMatch = line.match(/(?:ref|code|tx)[:.\s]*([A-Za-z0-9]+)/i);
+
+      if (amountMatch) {
+        const amount = parseFloat(amountMatch[0].replace('$', ''));
+        const recipient = recipientMatch ? recipientMatch[1].trim() : 'Unknown';
+        const code = codeMatch ? codeMatch[1] : `TX${Math.random().toString(36).substr(2, 6)}`;
+
+        parsedTransactions.push({
+          code,
+          recipient,
+          amount,
+          datetime: new Date(),
+        });
+      }
+    }
+
+    return parsedTransactions;
+  };
+
   const handleImport = () => {
     if (!smsText.trim()) {
       toast({
@@ -62,18 +89,21 @@ const Index = () => {
       return;
     }
 
-    // Placeholder parsing logic - this would need to be enhanced based on actual SMS format
-    const dummyTransaction: Transaction = {
-      code: "TX123",
-      recipient: "John Doe",
-      amount: 1000,
-      datetime: new Date(),
-    };
+    const parsedTransactions = parseSMS(smsText);
+    
+    if (parsedTransactions.length === 0) {
+      toast({
+        title: "Error",
+        description: "No valid transactions found in the SMS text",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setTransactions([...transactions, dummyTransaction]);
+    setTransactions(parsedTransactions);
     toast({
       title: "Success",
-      description: "Transaction imported successfully",
+      description: `${parsedTransactions.length} transaction(s) imported successfully`,
     });
   };
 
@@ -120,7 +150,7 @@ const Index = () => {
                 <tr key={index} className="border-b">
                   <td className="p-4">{transaction.code}</td>
                   <td className="p-4">{transaction.recipient}</td>
-                  <td className="p-4">${transaction.amount}</td>
+                  <td className="p-4">${transaction.amount.toFixed(2)}</td>
                   <td className="p-4">
                     {transaction.datetime.toLocaleString()}
                   </td>
