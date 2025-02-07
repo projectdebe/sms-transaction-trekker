@@ -57,21 +57,34 @@ const Index = () => {
     const parsedTransactions: Transaction[] = [];
 
     for (const line of lines) {
-      // Example pattern: Looking for amount, recipient, and transaction code
-      const amountMatch = line.match(/\$?\d+(\.\d{2})?/);
-      const recipientMatch = line.match(/(?:to|at|for)\s+([A-Za-z0-9\s&]+)/i);
-      const codeMatch = line.match(/(?:ref|code|tx)[:.\s]*([A-Za-z0-9]+)/i);
+      // Extract transaction code from the start of the message
+      const codeMatch = line.match(/^([A-Z0-9]+)/);
+      
+      // Extract amount (looking for format like "Ksh200.00")
+      const amountMatch = line.match(/Ksh([\d,]+\.?\d*)/);
+      
+      // Extract recipient (looking for format after "sent to" until the next number)
+      const recipientMatch = line.match(/sent to ([^0-9]+[0-9]+)/);
+      
+      // Extract date and time
+      const dateMatch = line.match(/on (\d{1,2}\/\d{1,2}\/\d{2}) at (\d{1,2}:\d{2} [AP]M)/);
 
-      if (amountMatch) {
-        const amount = parseFloat(amountMatch[0].replace('$', ''));
-        const recipient = recipientMatch ? recipientMatch[1].trim() : 'Unknown';
-        const code = codeMatch ? codeMatch[1] : `TX${Math.random().toString(36).substr(2, 6)}`;
+      if (codeMatch && amountMatch && recipientMatch && dateMatch) {
+        const code = codeMatch[1];
+        const amount = parseFloat(amountMatch[1].replace(',', ''));
+        const recipient = recipientMatch[1].trim();
+        const dateStr = dateMatch[1];
+        const timeStr = dateMatch[2];
+        
+        // Parse the date and time
+        const [month, day, year] = dateStr.split('/');
+        const datetime = new Date(`20${year}-${month}-${day} ${timeStr}`);
 
         parsedTransactions.push({
           code,
           recipient,
           amount,
-          datetime: new Date(),
+          datetime,
         });
       }
     }
