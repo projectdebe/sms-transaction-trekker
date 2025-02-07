@@ -1,4 +1,3 @@
-
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
@@ -11,6 +10,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowUpDown, X } from "lucide-react";
 
 interface Transaction {
   code: string;
@@ -25,10 +27,20 @@ interface Category {
   name: string;
 }
 
+type SortField = "code" | "recipient" | "amount" | "datetime" | "category";
+type SortOrder = "asc" | "desc";
+
 const Index = () => {
   const [smsText, setSmsText] = useState("");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedTransactions, setSelectedTransactions] = useState<number[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [sortConfig, setSortConfig] = useState<{
+    field: SortField;
+    order: SortOrder;
+  }>({ field: "datetime", order: "desc" });
 
   useEffect(() => {
     fetchCategories();
@@ -57,18 +69,9 @@ const Index = () => {
     const parsedTransactions: Transaction[] = [];
 
     for (const line of lines) {
-      // Extract transaction code from the start of the message
       const codeMatch = line.match(/^([A-Z0-9]+)/);
-      
-      // Extract amount (looking for format like "Ksh200.00")
       const amountMatch = line.match(/Ksh\s*([\d,]+\.?\d*)/);
-      
-      // Try to match both formats:
-      // 1. "sent to NAME NUMBER"
-      // 2. "paid to BUSINESS NAME"
       const recipientMatch = line.match(/(?:sent to|paid to) ([^.]+?)(?=\s+on|\.)/);
-      
-      // Extract date and time
       const dateMatch = line.match(/on (\d{1,2}\/\d{1,2}\/\d{2}) at (\d{1,2}:\d{2} [AP]M)/);
 
       if (codeMatch && amountMatch && recipientMatch && dateMatch) {
@@ -78,19 +81,17 @@ const Index = () => {
         const [day, month, year] = dateMatch[1].split('/').map(num => parseInt(num));
         const timeStr = dateMatch[2];
         
-        // Parse the time
-        const [hourStr, minuteStr] = timeStr.split(':');
+        const hourStr = timeStr.split(':')[0];
+        const minuteStr = timeStr.split(':')[1];
         const [minutes, period] = minuteStr.split(' ');
         let hour = parseInt(hourStr);
         
-        // Convert to 24-hour format
         if (period.toLowerCase() === 'pm' && hour !== 12) {
           hour += 12;
         } else if (period.toLowerCase() === 'am' && hour === 12) {
           hour = 0;
         }
 
-        // Create date object (note: month is 0-based in JavaScript)
         const datetime = new Date(2000 + year, month - 1, day, hour, parseInt(minutes));
 
         parsedTransactions.push({
@@ -142,6 +143,79 @@ const Index = () => {
     setTransactions(updatedTransactions);
   };
 
+  const handleSort = (field: SortField) => {
+    setSortConfig((current) => ({
+      field,
+      order: current.field === field && current.order === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const handleBulkCategoryChange = (category: string) => {
+    const updatedTransactions = [...transactions];
+    selectedTransactions.forEach((index) => {
+      updatedTransactions[index] = {
+        ...updatedTransactions[index],
+        category,
+      };
+    });
+    setTransactions(updatedTransactions);
+    toast({
+      title: "Success",
+      description: `Updated category for ${selectedTransactions.length} transaction(s)`,
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTransactions.length === filteredTransactions.length) {
+      setSelectedTransactions([]);
+    } else {
+      setSelectedTransactions(filteredTransactions.map((_, index) => index));
+    }
+  };
+
+  const toggleSelect = (index: number) => {
+    setSelectedTransactions((current) =>
+      current.includes(index)
+        ? current.filter((i) => i !== index)
+        : [...current, index]
+    );
+  };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setCategoryFilter("");
+  };
+
+  const filteredTransactions = transactions
+    .filter((transaction) => {
+      const matchesSearch =
+        !searchTerm ||
+        transaction.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.recipient.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCategory =
+        !categoryFilter || transaction.category === categoryFilter;
+
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      const { field, order } = sortConfig;
+      const modifier = order === "asc" ? 1 : -1;
+
+      if (field === "datetime") {
+        return (a.datetime.getTime() - b.datetime.getTime()) * modifier;
+      }
+      if (field === "amount") {
+        return (a.amount - b.amount) * modifier;
+      }
+      return (
+        (a[field]?.toString().toLowerCase() ?? "") >
+        (b[field]?.toString().toLowerCase() ?? "")
+          ? 1 * modifier
+          : -1 * modifier
+      );
+    });
+
   return (
     <div className="min-h-screen p-8 max-w-4xl mx-auto space-y-8">
       <div className="space-y-4">
@@ -160,49 +234,163 @@ const Index = () => {
       </div>
 
       {transactions.length > 0 && (
-        <div className="rounded-lg border">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="p-4 text-left">Code</th>
-                <th className="p-4 text-left">Recipient</th>
-                <th className="p-4 text-left">Amount</th>
-                <th className="p-4 text-left">Date/Time</th>
-                <th className="p-4 text-left">Category</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((transaction, index) => (
-                <tr key={index} className="border-b">
-                  <td className="p-4">{transaction.code}</td>
-                  <td className="p-4">{transaction.recipient}</td>
-                  <td className="p-4">Ksh {transaction.amount.toFixed(2)}</td>
-                  <td className="p-4">
-                    {transaction.datetime.toLocaleString()}
-                  </td>
-                  <td className="p-4">
-                    <Select
-                      value={transaction.category}
-                      onValueChange={(value) =>
-                        handleCategoryChange(index, value)
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="Search transactions..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All categories</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.name}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(searchTerm || categoryFilter) && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={clearFilters}
+                className="shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {selectedTransactions.length > 0 && (
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">
+                {selectedTransactions.length} selected
+              </span>
+              <Select onValueChange={handleBulkCategoryChange}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Set category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.name}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="rounded-lg border">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="p-4 text-left">
+                    <Checkbox
+                      checked={
+                        selectedTransactions.length === filteredTransactions.length
                       }
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </th>
+                  <th className="p-4 text-left">
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("code")}
+                      className="flex items-center gap-2"
                     >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.name}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
+                      Code
+                      <ArrowUpDown className="h-4 w-4" />
+                    </Button>
+                  </th>
+                  <th className="p-4 text-left">
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("recipient")}
+                      className="flex items-center gap-2"
+                    >
+                      Recipient
+                      <ArrowUpDown className="h-4 w-4" />
+                    </Button>
+                  </th>
+                  <th className="p-4 text-left">
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("amount")}
+                      className="flex items-center gap-2"
+                    >
+                      Amount
+                      <ArrowUpDown className="h-4 w-4" />
+                    </Button>
+                  </th>
+                  <th className="p-4 text-left">
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("datetime")}
+                      className="flex items-center gap-2"
+                    >
+                      Date/Time
+                      <ArrowUpDown className="h-4 w-4" />
+                    </Button>
+                  </th>
+                  <th className="p-4 text-left">
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("category")}
+                      className="flex items-center gap-2"
+                    >
+                      Category
+                      <ArrowUpDown className="h-4 w-4" />
+                    </Button>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredTransactions.map((transaction, index) => (
+                  <tr key={index} className="border-b">
+                    <td className="p-4">
+                      <Checkbox
+                        checked={selectedTransactions.includes(index)}
+                        onCheckedChange={() => toggleSelect(index)}
+                      />
+                    </td>
+                    <td className="p-4">{transaction.code}</td>
+                    <td className="p-4">{transaction.recipient}</td>
+                    <td className="p-4">Ksh {transaction.amount.toFixed(2)}</td>
+                    <td className="p-4">
+                      {transaction.datetime.toLocaleString()}
+                    </td>
+                    <td className="p-4">
+                      <Select
+                        value={transaction.category}
+                        onValueChange={(value) =>
+                          handleCategoryChange(index, value)
+                        }
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.name}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
