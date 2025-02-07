@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Index from "./pages/Index";
 import Imports from "./pages/Imports";
+import Transactions from "./pages/Transactions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -16,15 +17,18 @@ const queryClient = new QueryClient({
   },
 });
 
-// Create router configuration
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Index />,
+    element: <Imports />,
   },
   {
-    path: "/imports",
-    element: <Imports />,
+    path: "/import/:importId",
+    element: <Transactions />,
+  },
+  {
+    path: "/new",
+    element: <Index />,
   },
   {
     path: "*",

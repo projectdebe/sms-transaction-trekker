@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const Imports = () => {
   const navigate = useNavigate();
@@ -23,13 +25,19 @@ const Imports = () => {
   return (
     <div className="min-h-screen p-8 max-w-4xl mx-auto space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Imports</h1>
-        <button
-          onClick={() => navigate("/")}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+        <div>
+          <h1 className="text-3xl font-bold">M-PESA Imports</h1>
+          <p className="text-muted-foreground mt-1">
+            Import and manage your M-PESA transactions
+          </p>
+        </div>
+        <Button
+          onClick={() => navigate("/new")}
+          className="flex items-center gap-2"
         >
+          <Plus className="h-4 w-4" />
           New Import
-        </button>
+        </Button>
       </div>
 
       <div className="rounded-lg border">
@@ -46,9 +54,9 @@ const Imports = () => {
               <TableRow
                 key={imp.id}
                 className="cursor-pointer hover:bg-muted/50"
-                onClick={() => navigate(`/?import=${imp.id}`)}
+                onClick={() => navigate(`/import/${imp.id}`)}
               >
-                <TableCell>{imp.name}</TableCell>
+                <TableCell className="font-medium">{imp.name}</TableCell>
                 <TableCell className="space-y-2">
                   <Progress value={(imp.completed_count / imp.total_count) * 100} />
                   <p className="text-sm text-muted-foreground">
