@@ -54,6 +54,7 @@ export type Database = {
       transactions: {
         Row: {
           amount: number
+          category: string | null
           code: string
           created_at: string | null
           datetime: string
@@ -64,6 +65,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          category?: string | null
           code: string
           created_at?: string | null
           datetime: string
@@ -74,6 +76,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          category?: string | null
           code?: string
           created_at?: string | null
           datetime?: string
@@ -89,7 +92,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imports"
             referencedColumns: ["id"]
-          },
+          }
         ]
       }
     }
@@ -100,14 +103,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      transaction_category:
-        | "FOOD_AND_DINING"
-        | "TRANSPORTATION"
-        | "SHOPPING"
-        | "BILLS_AND_UTILITIES"
-        | "ENTERTAINMENT"
-        | "HEALTHCARE"
-        | "OTHERS"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -211,3 +207,4 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
     ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+

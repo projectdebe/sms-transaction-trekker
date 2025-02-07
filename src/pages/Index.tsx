@@ -24,6 +24,7 @@ interface Transaction {
   datetime: Date;
   category?: string | null;
   import_id?: string | null;
+  user_id?: string | null;
 }
 
 interface Category {
@@ -539,3 +540,4 @@ const Index = () => {
 };
 
 export default Index;
+
