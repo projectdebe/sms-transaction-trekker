@@ -27,6 +27,30 @@ export type Database = {
         }
         Relationships: []
       }
+      imports: {
+        Row: {
+          completed_count: number | null
+          created_at: string | null
+          id: string
+          name: string
+          total_count: number
+        }
+        Insert: {
+          completed_count?: number | null
+          created_at?: string | null
+          id?: string
+          name: string
+          total_count: number
+        }
+        Update: {
+          completed_count?: number | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          total_count?: number
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           amount: number
@@ -34,7 +58,7 @@ export type Database = {
           created_at: string | null
           datetime: string
           id: string
-          import_name: string | null
+          import_id: string | null
           recipient: string
           user_id: string | null
         }
@@ -44,7 +68,7 @@ export type Database = {
           created_at?: string | null
           datetime: string
           id?: string
-          import_name?: string | null
+          import_id?: string | null
           recipient: string
           user_id?: string | null
         }
@@ -54,11 +78,19 @@ export type Database = {
           created_at?: string | null
           datetime?: string
           id?: string
-          import_name?: string | null
+          import_id?: string | null
           recipient?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "transactions_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "imports"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

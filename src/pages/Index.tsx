@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowUpDown, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 interface Transaction {
   id?: string;
@@ -22,7 +23,7 @@ interface Transaction {
   amount: number;
   datetime: Date;
   category?: string;
-  import_name?: string;
+  import_id?: string;
 }
 
 interface Category {
@@ -45,6 +46,10 @@ const Index = () => {
     order: SortOrder;
   }>({ field: "datetime", order: "desc" });
 
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const importId = searchParams.get("import");
+
   const queryClient = useQueryClient();
 
   // Fetch categories
@@ -56,36 +61,27 @@ const Index = () => {
         .select("id, name")
         .order("name");
 
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to load categories",
-          variant: "destructive",
-        });
-        throw error;
-      }
-
+      if (error) throw error;
       return data;
     },
   });
 
   // Fetch existing transactions
   const { data: savedTransactions = [] } = useQuery({
-    queryKey: ["transactions"],
+    queryKey: ["transactions", importId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("transactions")
         .select("*")
         .order("datetime", { ascending: false });
-
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to load transactions",
-          variant: "destructive",
-        });
-        throw error;
+      
+      if (importId) {
+        query = query.eq("import_id", importId);
       }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
 
       return data.map(t => ({
         ...t,
@@ -100,35 +96,81 @@ const Index = () => {
     }
   }, [savedTransactions]);
 
-  // Save transactions mutation
-  const saveTransactionsMutation = useMutation({
+  // Create import mutation
+  const createImportMutation = useMutation({
     mutationFn: async (transactions: Transaction[]) => {
-      const { error } = await supabase.from("transactions").insert(
-        transactions.map(t => ({
-          ...t,
-          import_name: importName,
-          datetime: t.datetime.toISOString(), // Convert Date to ISO string
-        }))
-      );
+      // First create the import
+      const { data: importData, error: importError } = await supabase
+        .from("imports")
+        .insert([
+          {
+            name: importName,
+            total_count: transactions.length,
+            completed_count: 0,
+          },
+        ])
+        .select()
+        .single();
+
+      if (importError) throw importError;
+
+      // Then create all transactions with the import_id
+      const { error: transactionsError } = await supabase
+        .from("transactions")
+        .insert(
+          transactions.map((t) => ({
+            ...t,
+            import_id: importData.id,
+            datetime: t.datetime.toISOString(),
+          }))
+        );
+
+      if (transactionsError) throw transactionsError;
+
+      return importData;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["imports"] });
+      toast({
+        title: "Success",
+        description: "Transactions imported successfully",
+      });
+      setImportName("");
+      setSmsText("");
+      navigate(`/?import=${data.id}`);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to import transactions",
+        variant: "destructive",
+      });
+      console.error("Error importing transactions:", error);
+    },
+  });
+
+  // Update transaction category mutation
+  const updateTransactionMutation = useMutation({
+    mutationFn: async ({ id, category }: { id: string; category: string }) => {
+      const { error } = await supabase
+        .from("transactions")
+        .update({ category })
+        .eq("id", id);
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      toast({
-        title: "Success",
-        description: "Transactions saved successfully",
-      });
-      setImportName("");
-      setSmsText("");
+      queryClient.invalidateQueries({ queryKey: ["imports"] });
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save transactions",
+        description: "Failed to update transaction category",
         variant: "destructive",
       });
-      console.error("Error saving transactions:", error);
+      console.error("Error updating transaction:", error);
     },
   });
 
@@ -204,13 +246,13 @@ const Index = () => {
       return;
     }
 
-    saveTransactionsMutation.mutate(parsedTransactions);
+    createImportMutation.mutate(parsedTransactions);
   };
 
   const handleCategoryChange = (transactionIndex: number, category: string) => {
     const transaction = transactions[transactionIndex];
     if (transaction.id) {
-      updateTransactionMutation.mutate({ ...transaction, category });
+      updateTransactionMutation.mutate({ id: transaction.id, category });
     } else {
       const updatedTransactions = [...transactions];
       updatedTransactions[transactionIndex] = {
@@ -298,8 +340,17 @@ const Index = () => {
 
   return (
     <div className="min-h-screen p-8 max-w-4xl mx-auto space-y-8">
-      <div className="space-y-4">
+      <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">SMS Transaction Tracker</h1>
+        <Button 
+          variant="outline"
+          onClick={() => navigate("/imports")}
+        >
+          View All Imports
+        </Button>
+      </div>
+
+      {!importId && (
         <div className="space-y-4">
           <Input
             placeholder="Enter a name for this import..."
@@ -316,12 +367,12 @@ const Index = () => {
           <Button 
             onClick={handleImport} 
             className="w-full"
-            disabled={saveTransactionsMutation.isPending}
+            disabled={createImportMutation.isPending}
           >
-            {saveTransactionsMutation.isPending ? "Saving..." : "Import Transactions"}
+            {createImportMutation.isPending ? "Importing..." : "Import Transactions"}
           </Button>
         </div>
-      </div>
+      )}
 
       {transactions.length > 0 && (
         <div className="space-y-4">
