@@ -22,8 +22,8 @@ interface Transaction {
   recipient: string;
   amount: number;
   datetime: Date;
-  category?: string;
-  import_id?: string;
+  category?: string | null;
+  import_id?: string | null;
 }
 
 interface Category {
