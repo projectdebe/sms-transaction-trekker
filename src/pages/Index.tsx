@@ -46,7 +46,7 @@ type SortOrder = "asc" | "desc";
 const Index = () => {
   const [smsText, setSmsText] = useState("");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [selectedTransactions, setSelectedTransactions] = useState<number[]>([]);
+  const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [importName, setImportName] = useState("");
@@ -54,6 +54,7 @@ const Index = () => {
     field: SortField;
     order: SortOrder;
   }>({ field: "datetime", order: "desc" });
+  const [activeTab, setActiveTab] = useState("import");
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -105,10 +106,37 @@ const Index = () => {
     }
   }, [savedTransactions]);
 
+  // Update transaction category mutation
+  const updateTransactionMutation = useMutation({
+    mutationFn: async ({ ids, category }: { ids: string[]; category: string }) => {
+      const { error } = await supabase
+        .from("transactions")
+        .update({ category })
+        .in('id', ids);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["imports"] });
+      toast({
+        title: "Success",
+        description: `Updated category for ${selectedTransactions.length} transaction(s)`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update transaction categories",
+        variant: "destructive",
+      });
+      console.error("Error updating transactions:", error);
+    },
+  });
+
   // Create import mutation
   const createImportMutation = useMutation({
     mutationFn: async (transactions: Transaction[]) => {
-      // First create the import
       const { data: importData, error: importError } = await supabase
         .from("imports")
         .insert([
@@ -123,7 +151,6 @@ const Index = () => {
 
       if (importError) throw importError;
 
-      // Then create all transactions with the import_id
       const { error: transactionsError } = await supabase
         .from("transactions")
         .insert(
@@ -147,6 +174,7 @@ const Index = () => {
       });
       setImportName("");
       setSmsText("");
+      setActiveTab("transactions");
       navigate(`/?import=${data.id}`);
     },
     onError: (error) => {
@@ -156,30 +184,6 @@ const Index = () => {
         variant: "destructive",
       });
       console.error("Error importing transactions:", error);
-    },
-  });
-
-  // Update transaction category mutation
-  const updateTransactionMutation = useMutation({
-    mutationFn: async ({ id, category }: { id: string; category: string }) => {
-      const { error } = await supabase
-        .from("transactions")
-        .update({ category })
-        .eq("id", id);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["imports"] });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to update transaction category",
-        variant: "destructive",
-      });
-      console.error("Error updating transaction:", error);
     },
   });
 
@@ -258,55 +262,32 @@ const Index = () => {
     createImportMutation.mutate(parsedTransactions);
   };
 
-  const handleCategoryChange = (transactionIndex: number, category: string) => {
-    const transaction = transactions[transactionIndex];
-    if (transaction.id) {
-      updateTransactionMutation.mutate({ id: transaction.id, category });
-    } else {
-      const updatedTransactions = [...transactions];
-      updatedTransactions[transactionIndex] = {
-        ...updatedTransactions[transactionIndex],
-        category,
-      };
-      setTransactions(updatedTransactions);
-    }
-  };
-
-  const handleSort = (field: SortField) => {
-    setSortConfig((current) => ({
-      field,
-      order: current.field === field && current.order === "asc" ? "desc" : "asc",
-    }));
-  };
-
   const handleBulkCategoryChange = (category: string) => {
-    const updatedTransactions = [...transactions];
-    selectedTransactions.forEach((index) => {
-      updatedTransactions[index] = {
-        ...updatedTransactions[index],
-        category,
-      };
-    });
-    setTransactions(updatedTransactions);
-    toast({
-      title: "Success",
-      description: `Updated category for ${selectedTransactions.length} transaction(s)`,
-    });
+    const selectedIds = selectedTransactions.filter(id => id); // Filter out any empty strings
+    if (selectedIds.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select transactions to update",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateTransactionMutation.mutate({ ids: selectedIds, category });
   };
 
   const toggleSelectAll = () => {
     if (selectedTransactions.length === filteredTransactions.length) {
       setSelectedTransactions([]);
     } else {
-      setSelectedTransactions(filteredTransactions.map((_, index) => index));
+      setSelectedTransactions(filteredTransactions.map((t) => t.id || '').filter(id => id));
     }
   };
 
-  const toggleSelect = (index: number) => {
+  const toggleSelect = (id: string) => {
     setSelectedTransactions((current) =>
-      current.includes(index)
-        ? current.filter((i) => i !== index)
-        : [...current, index]
+      current.includes(id)
+        ? current.filter((i) => i !== id)
+        : [...current, id]
     );
   };
 
@@ -366,7 +347,7 @@ const Index = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue={importId ? "transactions" : "import"} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full max-w-[400px] grid-cols-2">
           <TabsTrigger value="import" className="flex items-center gap-2">
             <PlusCircle className="h-4 w-4" />
@@ -535,12 +516,12 @@ const Index = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredTransactions.map((transaction, index) => (
-                        <tr key={transaction.id || index} className="border-b">
+                      {filteredTransactions.map((transaction) => (
+                        <tr key={transaction.id} className="border-b">
                           <td className="p-4">
                             <Checkbox
-                              checked={selectedTransactions.includes(index)}
-                              onCheckedChange={() => toggleSelect(index)}
+                              checked={transaction.id ? selectedTransactions.includes(transaction.id) : false}
+                              onCheckedChange={() => transaction.id && toggleSelect(transaction.id)}
                             />
                           </td>
                           <td className="p-4">{transaction.code}</td>
@@ -551,8 +532,14 @@ const Index = () => {
                           </td>
                           <td className="p-4">
                             <Select
-                              value={transaction.category}
-                              onValueChange={(value) => handleCategoryChange(index, value)}
+                              value={transaction.category || undefined}
+                              onValueChange={(value) => 
+                                transaction.id && 
+                                updateTransactionMutation.mutate({ 
+                                  ids: [transaction.id], 
+                                  category: value 
+                                })
+                              }
                             >
                               <SelectTrigger className="w-[180px]">
                                 <SelectValue placeholder="Select category" />
