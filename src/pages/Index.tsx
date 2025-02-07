@@ -194,7 +194,9 @@ const Index = () => {
         transaction.recipient.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesCategory =
-        !categoryFilter || transaction.category === categoryFilter;
+        !categoryFilter || 
+        categoryFilter === "all" || 
+        transaction.category === categoryFilter;
 
       return matchesSearch && matchesCategory;
     })
@@ -248,7 +250,7 @@ const Index = () => {
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All categories</SelectItem>
+                <SelectItem value="all">All categories</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.name}>
                     {category.name}
