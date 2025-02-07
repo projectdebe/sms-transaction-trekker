@@ -61,7 +61,7 @@ const Index = () => {
       const codeMatch = line.match(/^([A-Z0-9]+)/);
       
       // Extract amount (looking for format like "Ksh200.00")
-      const amountMatch = line.match(/Ksh([\d,]+\.?\d*)/);
+      const amountMatch = line.match(/Ksh\s*([\d,]+\.?\d*)/);
       
       // Try to match both formats:
       // 1. "sent to NAME NUMBER"
@@ -73,14 +73,25 @@ const Index = () => {
 
       if (codeMatch && amountMatch && recipientMatch && dateMatch) {
         const code = codeMatch[1];
-        const amount = parseFloat(amountMatch[1].replace(',', ''));
+        const amount = parseFloat(amountMatch[1].replace(/,/g, ''));
         const recipient = recipientMatch[1].trim();
-        const dateStr = dateMatch[1];
+        const [day, month, year] = dateMatch[1].split('/').map(num => parseInt(num));
         const timeStr = dateMatch[2];
         
-        // Parse the date and time
-        const [month, day, year] = dateStr.split('/');
-        const datetime = new Date(`20${year}-${month}-${day} ${timeStr}`);
+        // Parse the time
+        const [hourStr, minuteStr] = timeStr.split(':');
+        const [minutes, period] = minuteStr.split(' ');
+        let hour = parseInt(hourStr);
+        
+        // Convert to 24-hour format
+        if (period.toLowerCase() === 'pm' && hour !== 12) {
+          hour += 12;
+        } else if (period.toLowerCase() === 'am' && hour === 12) {
+          hour = 0;
+        }
+
+        // Create date object (note: month is 0-based in JavaScript)
+        const datetime = new Date(2000 + year, month - 1, day, hour, parseInt(minutes));
 
         parsedTransactions.push({
           code,
