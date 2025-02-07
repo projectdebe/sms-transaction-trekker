@@ -104,11 +104,16 @@ const Index = () => {
   // Save transactions mutation
   const saveTransactionsMutation = useMutation({
     mutationFn: async (transactions: Transaction[]) => {
+      const user = await supabase.auth.getUser();
+      const userId = user.data.user?.id;
+
       const { error } = await supabase.from("transactions").insert(
         transactions.map(t => ({
           ...t,
           import_name: importName,
-          user_id: (await supabase.auth.getUser()).data.user?.id,
+          user_id: userId,
+          // Convert Date to ISO string for Supabase
+          datetime: t.datetime.toISOString(),
         }))
       );
 
@@ -137,7 +142,7 @@ const Index = () => {
     mutationFn: async (transaction: Transaction) => {
       const { error } = await supabase
         .from("transactions")
-        .update({ category: transaction.category })
+        .update({ import_name: transaction.import_name })
         .eq("id", transaction.id);
 
       if (error) throw error;
