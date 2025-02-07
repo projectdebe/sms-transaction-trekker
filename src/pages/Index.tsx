@@ -1,19 +1,56 @@
 
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "@/components/ui/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Transaction {
   code: string;
   recipient: string;
   amount: number;
   datetime: Date;
+  category?: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
 }
 
 const Index = () => {
   const [smsText, setSmsText] = useState("");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id, name")
+      .order("name");
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load categories",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCategories(data);
+  };
 
   const handleImport = () => {
     if (!smsText.trim()) {
@@ -38,6 +75,15 @@ const Index = () => {
       title: "Success",
       description: "Transaction imported successfully",
     });
+  };
+
+  const handleCategoryChange = (transactionIndex: number, category: string) => {
+    const updatedTransactions = [...transactions];
+    updatedTransactions[transactionIndex] = {
+      ...updatedTransactions[transactionIndex],
+      category,
+    };
+    setTransactions(updatedTransactions);
   };
 
   return (
@@ -66,6 +112,7 @@ const Index = () => {
                 <th className="p-4 text-left">Recipient</th>
                 <th className="p-4 text-left">Amount</th>
                 <th className="p-4 text-left">Date/Time</th>
+                <th className="p-4 text-left">Category</th>
               </tr>
             </thead>
             <tbody>
@@ -76,6 +123,25 @@ const Index = () => {
                   <td className="p-4">${transaction.amount}</td>
                   <td className="p-4">
                     {transaction.datetime.toLocaleString()}
+                  </td>
+                  <td className="p-4">
+                    <Select
+                      value={transaction.category}
+                      onValueChange={(value) =>
+                        handleCategoryChange(index, value)
+                      }
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.name}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </td>
                 </tr>
               ))}
