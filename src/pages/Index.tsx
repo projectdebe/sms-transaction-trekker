@@ -13,13 +13,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowUpDown, X } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Transaction {
+  id?: string;
   code: string;
   recipient: string;
   amount: number;
   datetime: Date;
   category?: string;
+  import_name?: string;
+  user_id?: string;
 }
 
 interface Category {
@@ -33,36 +37,123 @@ type SortOrder = "asc" | "desc";
 const Index = () => {
   const [smsText, setSmsText] = useState("");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedTransactions, setSelectedTransactions] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [importName, setImportName] = useState("");
   const [sortConfig, setSortConfig] = useState<{
     field: SortField;
     order: SortOrder;
   }>({ field: "datetime", order: "desc" });
 
+  const queryClient = useQueryClient();
+
+  // Fetch categories
+  const { data: categories = [] } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name")
+        .order("name");
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load categories",
+          variant: "destructive",
+        });
+        throw error;
+      }
+
+      return data;
+    },
+  });
+
+  // Fetch existing transactions
+  const { data: savedTransactions = [] } = useQuery({
+    queryKey: ["transactions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .order("datetime", { ascending: false });
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load transactions",
+          variant: "destructive",
+        });
+        throw error;
+      }
+
+      return data.map(t => ({
+        ...t,
+        datetime: new Date(t.datetime)
+      }));
+    },
+  });
+
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    if (savedTransactions.length > 0) {
+      setTransactions(savedTransactions);
+    }
+  }, [savedTransactions]);
 
-  const fetchCategories = async () => {
-    const { data, error } = await supabase
-      .from("categories")
-      .select("id, name")
-      .order("name");
+  // Save transactions mutation
+  const saveTransactionsMutation = useMutation({
+    mutationFn: async (transactions: Transaction[]) => {
+      const { error } = await supabase.from("transactions").insert(
+        transactions.map(t => ({
+          ...t,
+          import_name: importName,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+        }))
+      );
 
-    if (error) {
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({
+        title: "Success",
+        description: "Transactions saved successfully",
+      });
+      setImportName("");
+    },
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to load categories",
+        description: "Failed to save transactions",
         variant: "destructive",
       });
-      return;
-    }
+      console.error("Error saving transactions:", error);
+    },
+  });
 
-    setCategories(data);
-  };
+  // Update transaction mutation
+  const updateTransactionMutation = useMutation({
+    mutationFn: async (transaction: Transaction) => {
+      const { error } = await supabase
+        .from("transactions")
+        .update({ category: transaction.category })
+        .eq("id", transaction.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update transaction",
+        variant: "destructive",
+      });
+      console.error("Error updating transaction:", error);
+    },
+  });
 
   const parseSMS = (text: string): Transaction[] => {
     const lines = text.split('\n').filter(line => line.trim());
@@ -116,6 +207,15 @@ const Index = () => {
       return;
     }
 
+    if (!importName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a name for this import",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const parsedTransactions = parseSMS(smsText);
     
     if (parsedTransactions.length === 0) {
@@ -127,20 +227,21 @@ const Index = () => {
       return;
     }
 
-    setTransactions(parsedTransactions);
-    toast({
-      title: "Success",
-      description: `${parsedTransactions.length} transaction(s) imported successfully`,
-    });
+    saveTransactionsMutation.mutate(parsedTransactions);
   };
 
   const handleCategoryChange = (transactionIndex: number, category: string) => {
-    const updatedTransactions = [...transactions];
-    updatedTransactions[transactionIndex] = {
-      ...updatedTransactions[transactionIndex],
-      category,
-    };
-    setTransactions(updatedTransactions);
+    const transaction = transactions[transactionIndex];
+    if (transaction.id) {
+      updateTransactionMutation.mutate({ ...transaction, category });
+    } else {
+      const updatedTransactions = [...transactions];
+      updatedTransactions[transactionIndex] = {
+        ...updatedTransactions[transactionIndex],
+        category,
+      };
+      setTransactions(updatedTransactions);
+    }
   };
 
   const handleSort = (field: SortField) => {
@@ -223,14 +324,24 @@ const Index = () => {
       <div className="space-y-4">
         <h1 className="text-3xl font-bold">SMS Transaction Tracker</h1>
         <div className="space-y-4">
+          <Input
+            placeholder="Enter a name for this import..."
+            value={importName}
+            onChange={(e) => setImportName(e.target.value)}
+            className="mb-2"
+          />
           <Textarea
             placeholder="Paste your SMS messages here..."
             value={smsText}
             onChange={(e) => setSmsText(e.target.value)}
             className="min-h-[200px]"
           />
-          <Button onClick={handleImport} className="w-full">
-            Import Transactions
+          <Button 
+            onClick={handleImport} 
+            className="w-full"
+            disabled={saveTransactionsMutation.isPending}
+          >
+            {saveTransactionsMutation.isPending ? "Saving..." : "Import Transactions"}
           </Button>
         </div>
       </div>
@@ -342,6 +453,7 @@ const Index = () => {
                       <ArrowUpDown className="h-4 w-4" />
                     </Button>
                   </th>
+                  <th className="p-4 text-left">Import Name</th>
                   <th className="p-4 text-left">
                     <Button
                       variant="ghost"
@@ -356,7 +468,7 @@ const Index = () => {
               </thead>
               <tbody>
                 {filteredTransactions.map((transaction, index) => (
-                  <tr key={index} className="border-b">
+                  <tr key={transaction.id || index} className="border-b">
                     <td className="p-4">
                       <Checkbox
                         checked={selectedTransactions.includes(index)}
@@ -369,6 +481,7 @@ const Index = () => {
                     <td className="p-4">
                       {transaction.datetime.toLocaleString()}
                     </td>
+                    <td className="p-4">{transaction.import_name}</td>
                     <td className="p-4">
                       <Select
                         value={transaction.category}

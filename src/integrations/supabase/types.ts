@@ -34,7 +34,9 @@ export type Database = {
           created_at: string | null
           datetime: string
           id: string
+          import_name: string | null
           recipient: string
+          user_id: string | null
         }
         Insert: {
           amount: number
@@ -42,7 +44,9 @@ export type Database = {
           created_at?: string | null
           datetime: string
           id?: string
+          import_name?: string | null
           recipient: string
+          user_id?: string | null
         }
         Update: {
           amount?: number
@@ -50,7 +54,9 @@ export type Database = {
           created_at?: string | null
           datetime?: string
           id?: string
+          import_name?: string | null
           recipient?: string
+          user_id?: string | null
         }
         Relationships: []
       }
