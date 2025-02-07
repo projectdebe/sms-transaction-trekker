@@ -63,8 +63,10 @@ const Index = () => {
       // Extract amount (looking for format like "Ksh200.00")
       const amountMatch = line.match(/Ksh([\d,]+\.?\d*)/);
       
-      // Extract recipient (looking for format after "sent to" until the next number)
-      const recipientMatch = line.match(/sent to ([^0-9]+[0-9]+)/);
+      // Try to match both formats:
+      // 1. "sent to NAME NUMBER"
+      // 2. "paid to BUSINESS NAME"
+      const recipientMatch = line.match(/(?:sent to|paid to) ([^.]+?)(?=\s+on|\.)/);
       
       // Extract date and time
       const dateMatch = line.match(/on (\d{1,2}\/\d{1,2}\/\d{2}) at (\d{1,2}:\d{2} [AP]M)/);
@@ -163,7 +165,7 @@ const Index = () => {
                 <tr key={index} className="border-b">
                   <td className="p-4">{transaction.code}</td>
                   <td className="p-4">{transaction.recipient}</td>
-                  <td className="p-4">${transaction.amount.toFixed(2)}</td>
+                  <td className="p-4">Ksh {transaction.amount.toFixed(2)}</td>
                   <td className="p-4">
                     {transaction.datetime.toLocaleString()}
                   </td>
