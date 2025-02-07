@@ -104,16 +104,18 @@ const Index = () => {
   // Save transactions mutation
   const saveTransactionsMutation = useMutation({
     mutationFn: async (transactions: Transaction[]) => {
-      const user = await supabase.auth.getUser();
-      const userId = user.data.user?.id;
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
 
       const { error } = await supabase.from("transactions").insert(
         transactions.map(t => ({
           ...t,
           import_name: importName,
-          user_id: userId,
-          // Convert Date to ISO string for Supabase
-          datetime: t.datetime.toISOString(),
+          user_id: user.id,
+          datetime: t.datetime.toISOString(), // Convert Date to ISO string
         }))
       );
 
@@ -126,11 +128,12 @@ const Index = () => {
         description: "Transactions saved successfully",
       });
       setImportName("");
+      setSmsText("");
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to save transactions",
+        description: error instanceof Error ? error.message : "Failed to save transactions",
         variant: "destructive",
       });
       console.error("Error saving transactions:", error);
