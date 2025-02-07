@@ -12,9 +12,17 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowUpDown, X } from "lucide-react";
+import { ArrowUpDown, X, PlusCircle, FileText, Table as TableIcon } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Transaction {
   id?: string;
@@ -340,204 +348,245 @@ const Index = () => {
     });
 
   return (
-    <div className="min-h-screen p-8 max-w-4xl mx-auto space-y-8">
+    <div className="min-h-screen p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">SMS Transaction Tracker</h1>
+        <div>
+          <h1 className="text-3xl font-bold">SMS Transaction Tracker</h1>
+          <p className="text-muted-foreground mt-1">
+            Import and manage your M-PESA transactions
+          </p>
+        </div>
         <Button 
           variant="outline"
           onClick={() => navigate("/imports")}
+          className="flex items-center gap-2"
         >
+          <FileText className="h-4 w-4" />
           View All Imports
         </Button>
       </div>
 
-      {!importId && (
-        <div className="space-y-4">
-          <Input
-            placeholder="Enter a name for this import..."
-            value={importName}
-            onChange={(e) => setImportName(e.target.value)}
-            className="mb-2"
-          />
-          <Textarea
-            placeholder="Paste your SMS messages here..."
-            value={smsText}
-            onChange={(e) => setSmsText(e.target.value)}
-            className="min-h-[200px]"
-          />
-          <Button 
-            onClick={handleImport} 
-            className="w-full"
-            disabled={createImportMutation.isPending}
-          >
-            {createImportMutation.isPending ? "Importing..." : "Import Transactions"}
-          </Button>
-        </div>
-      )}
+      <Tabs defaultValue={importId ? "transactions" : "import"} className="w-full">
+        <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+          <TabsTrigger value="import" className="flex items-center gap-2">
+            <PlusCircle className="h-4 w-4" />
+            Import New
+          </TabsTrigger>
+          <TabsTrigger value="transactions" className="flex items-center gap-2">
+            <TableIcon className="h-4 w-4" />
+            Transactions
+          </TabsTrigger>
+        </TabsList>
 
-      {transactions.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
+        <TabsContent value="import">
+          <Card>
+            <CardHeader>
+              <CardTitle>Import Transactions</CardTitle>
+              <CardDescription>
+                Paste your M-PESA SMS messages below to import transactions
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <Input
-                placeholder="Search transactions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Enter a name for this import..."
+                value={importName}
+                onChange={(e) => setImportName(e.target.value)}
               />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.name}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {(searchTerm || categoryFilter) && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={clearFilters}
-                className="shrink-0"
+              <Textarea
+                placeholder="Paste your SMS messages here..."
+                value={smsText}
+                onChange={(e) => setSmsText(e.target.value)}
+                className="min-h-[200px]"
+              />
+              <Button 
+                onClick={handleImport} 
+                className="w-full"
+                disabled={createImportMutation.isPending}
               >
-                <X className="h-4 w-4" />
+                {createImportMutation.isPending ? "Importing..." : "Import Transactions"}
               </Button>
-            )}
-          </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          {selectedTransactions.length > 0 && (
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">
-                {selectedTransactions.length} selected
-              </span>
-              <Select onValueChange={handleBulkCategoryChange}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Set category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.name}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div className="rounded-lg border">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="p-4 text-left">
-                    <Checkbox
-                      checked={
-                        selectedTransactions.length === filteredTransactions.length
-                      }
-                      onCheckedChange={toggleSelectAll}
+        <TabsContent value="transactions">
+          {transactions.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Transactions</CardTitle>
+                <CardDescription>
+                  Manage and categorize your imported transactions
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Search transactions..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                  </th>
-                  <th className="p-4 text-left">
+                  </div>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All categories</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.name}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {(searchTerm || categoryFilter) && (
                     <Button
-                      variant="ghost"
-                      onClick={() => handleSort("code")}
-                      className="flex items-center gap-2"
+                      variant="outline"
+                      size="icon"
+                      onClick={clearFilters}
+                      className="shrink-0"
                     >
-                      Code
-                      <ArrowUpDown className="h-4 w-4" />
+                      <X className="h-4 w-4" />
                     </Button>
-                  </th>
-                  <th className="p-4 text-left">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort("recipient")}
-                      className="flex items-center gap-2"
-                    >
-                      Recipient
-                      <ArrowUpDown className="h-4 w-4" />
-                    </Button>
-                  </th>
-                  <th className="p-4 text-left">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort("amount")}
-                      className="flex items-center gap-2"
-                    >
-                      Amount
-                      <ArrowUpDown className="h-4 w-4" />
-                    </Button>
-                  </th>
-                  <th className="p-4 text-left">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort("datetime")}
-                      className="flex items-center gap-2"
-                    >
-                      Date/Time
-                      <ArrowUpDown className="h-4 w-4" />
-                    </Button>
-                  </th>
-                  <th className="p-4 text-left">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort("category")}
-                      className="flex items-center gap-2"
-                    >
-                      Category
-                      <ArrowUpDown className="h-4 w-4" />
-                    </Button>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTransactions.map((transaction, index) => (
-                  <tr key={transaction.id || index} className="border-b">
-                    <td className="p-4">
-                      <Checkbox
-                        checked={selectedTransactions.includes(index)}
-                        onCheckedChange={() => toggleSelect(index)}
-                      />
-                    </td>
-                    <td className="p-4">{transaction.code}</td>
-                    <td className="p-4">{transaction.recipient}</td>
-                    <td className="p-4">Ksh {transaction.amount.toFixed(2)}</td>
-                    <td className="p-4">
-                      {transaction.datetime.toLocaleString()}
-                    </td>
-                    <td className="p-4">
-                      <Select
-                        value={transaction.category}
-                        onValueChange={(value) =>
-                          handleCategoryChange(index, value)
-                        }
-                      >
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem key={category.id} value={category.name}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+                  )}
+                </div>
+
+                {selectedTransactions.length > 0 && (
+                  <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
+                    <span className="text-sm text-muted-foreground">
+                      {selectedTransactions.length} selected
+                    </span>
+                    <Select onValueChange={handleBulkCategoryChange}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Set category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.name}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="rounded-lg border">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="p-4 text-left">
+                          <Checkbox
+                            checked={selectedTransactions.length === filteredTransactions.length}
+                            onCheckedChange={toggleSelectAll}
+                          />
+                        </th>
+                        <th className="p-4 text-left">
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort("code")}
+                            className="flex items-center gap-2"
+                          >
+                            Code
+                            <ArrowUpDown className="h-4 w-4" />
+                          </Button>
+                        </th>
+                        <th className="p-4 text-left">
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort("recipient")}
+                            className="flex items-center gap-2"
+                          >
+                            Recipient
+                            <ArrowUpDown className="h-4 w-4" />
+                          </Button>
+                        </th>
+                        <th className="p-4 text-left">
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort("amount")}
+                            className="flex items-center gap-2"
+                          >
+                            Amount
+                            <ArrowUpDown className="h-4 w-4" />
+                          </Button>
+                        </th>
+                        <th className="p-4 text-left">
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort("datetime")}
+                            className="flex items-center gap-2"
+                          >
+                            Date/Time
+                            <ArrowUpDown className="h-4 w-4" />
+                          </Button>
+                        </th>
+                        <th className="p-4 text-left">
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleSort("category")}
+                            className="flex items-center gap-2"
+                          >
+                            Category
+                            <ArrowUpDown className="h-4 w-4" />
+                          </Button>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTransactions.map((transaction, index) => (
+                        <tr key={transaction.id || index} className="border-b">
+                          <td className="p-4">
+                            <Checkbox
+                              checked={selectedTransactions.includes(index)}
+                              onCheckedChange={() => toggleSelect(index)}
+                            />
+                          </td>
+                          <td className="p-4">{transaction.code}</td>
+                          <td className="p-4">{transaction.recipient}</td>
+                          <td className="p-4">Ksh {transaction.amount.toFixed(2)}</td>
+                          <td className="p-4">
+                            {transaction.datetime.toLocaleString()}
+                          </td>
+                          <td className="p-4">
+                            <Select
+                              value={transaction.category}
+                              onValueChange={(value) => handleCategoryChange(index, value)}
+                            >
+                              <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {categories.map((category) => (
+                                  <SelectItem key={category.id} value={category.name}>
+                                    {category.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>No Transactions Yet</CardTitle>
+                <CardDescription>
+                  Start by importing your M-PESA SMS messages in the Import New tab
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
 
 export default Index;
-

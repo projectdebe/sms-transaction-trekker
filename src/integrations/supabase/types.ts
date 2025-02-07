@@ -92,7 +92,7 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "imports"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
     }
@@ -103,7 +103,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      transaction_category:
+        | "FOOD_AND_DINING"
+        | "TRANSPORTATION"
+        | "SHOPPING"
+        | "BILLS_AND_UTILITIES"
+        | "ENTERTAINMENT"
+        | "HEALTHCARE"
+        | "OTHERS"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -207,4 +214,3 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
     ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
-
