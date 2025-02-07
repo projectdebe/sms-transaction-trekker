@@ -328,6 +328,16 @@ const Index = () => {
       );
     });
 
+  const handleSort = (field: SortField) => {
+    setSortConfig({
+      field,
+      order:
+        sortConfig.field === field && sortConfig.order === "asc"
+          ? "desc"
+          : "asc",
+    });
+  };
+
   return (
     <div className="min-h-screen p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex justify-between items-center">
