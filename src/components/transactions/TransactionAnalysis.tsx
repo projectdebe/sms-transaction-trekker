@@ -2,9 +2,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2 } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 interface Transaction {
   id?: string;
@@ -17,25 +18,37 @@ interface Transaction {
 
 interface TransactionAnalysisProps {
   transactions: Transaction[];
+  importId: string;
 }
 
-export const TransactionAnalysis = ({ transactions }: TransactionAnalysisProps) => {
+export const TransactionAnalysis = ({ transactions, importId }: TransactionAnalysisProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
-  const [analysis, setAnalysis] = useState<string>("");
+
+  const { data: analysisReport, refetch } = useQuery({
+    queryKey: ['analysis', importId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('analysis_reports')
+        .select('*')
+        .eq('import_id', importId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
     try {
       const { data, error } = await supabase.functions.invoke('analyze-transactions', {
-        body: { transactions },
+        body: { transactions, importId },
       });
 
       if (error) throw error;
 
-      // Extract the analysis text from the DeepSeek response
-      const analysisText = data.choices?.[0]?.message?.content || 'No analysis available';
-      setAnalysis(analysisText);
+      await refetch();
       setShowAnalysis(true);
     } catch (error) {
       console.error('Analysis error:', error);
@@ -45,22 +58,60 @@ export const TransactionAnalysis = ({ transactions }: TransactionAnalysisProps) 
     }
   };
 
+  const handleDownloadPDF = async () => {
+    if (!analysisReport?.pdf_path) return;
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('analysis_pdfs')
+        .download(analysisReport.pdf_path);
+
+      if (error) throw error;
+
+      // Create a download link
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = analysisReport.pdf_path.split('/').pop() || 'analysis.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download PDF');
+    }
+  };
+
   return (
     <>
-      <Button 
-        onClick={handleAnalyze}
-        disabled={isAnalyzing || transactions.length === 0}
-        className="ml-auto"
-      >
-        {isAnalyzing ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Analyzing...
-          </>
-        ) : (
-          'Run AI Analysis'
+      <div className="flex items-center gap-4">
+        <Button 
+          onClick={handleAnalyze}
+          disabled={isAnalyzing || transactions.length === 0}
+          className="ml-auto"
+        >
+          {isAnalyzing ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Analyzing...
+            </>
+          ) : (
+            'Run AI Analysis'
+          )}
+        </Button>
+
+        {analysisReport && (
+          <Button
+            variant="outline"
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Download PDF
+          </Button>
         )}
-      </Button>
+      </div>
 
       <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
         <DialogContent className="max-w-2xl">
@@ -71,7 +122,7 @@ export const TransactionAnalysis = ({ transactions }: TransactionAnalysisProps) 
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-4 whitespace-pre-wrap">
-            {analysis}
+            {analysisReport?.analysis_text}
           </div>
         </DialogContent>
       </Dialog>

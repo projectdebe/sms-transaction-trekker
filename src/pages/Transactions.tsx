@@ -209,7 +209,10 @@ const Transactions = () => {
             {importData?.completed_count} / {importData?.total_count} transactions categorized
           </p>
         </div>
-        <TransactionAnalysis transactions={filteredTransactions} />
+        <TransactionAnalysis 
+          transactions={filteredTransactions} 
+          importId={importId || ''}
+        />
       </div>
 
       <TransactionCharts 

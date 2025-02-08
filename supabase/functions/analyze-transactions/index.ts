@@ -1,6 +1,6 @@
-
 import { corsHeaders } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { jsPDF } from 'https://esm.sh/jspdf@2.5.1';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
@@ -13,13 +13,32 @@ interface AnalysisData {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { transactions } = await req.json();
+    const { transactions, importId } = await req.json();
+
+    // Initialize Supabase client
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Check if analysis already exists
+    const { data: existingAnalysis } = await supabase
+      .from('analysis_reports')
+      .select('*')
+      .eq('import_id', importId)
+      .single();
+
+    if (existingAnalysis) {
+      return new Response(
+        JSON.stringify(existingAnalysis),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Prepare summarized analysis data
     const analysisData: AnalysisData = {
@@ -116,15 +135,57 @@ Keep the analysis concise and actionable.`;
     }
 
     const aiResponse = await response.json();
+    const analysisText = aiResponse.choices?.[0]?.message?.content || 'No analysis available';
 
-    return new Response(JSON.stringify(aiResponse), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // Generate PDF
+    const pdf = new jsPDF();
+    const splitText = pdf.splitTextToSize(analysisText, 180);
+    
+    pdf.text('Transaction Analysis Report', 20, 20);
+    pdf.text(`Generated: ${new Date().toLocaleString()}`, 20, 30);
+    pdf.text(splitText, 20, 50);
+
+    // Convert PDF to Uint8Array
+    const pdfBytes = pdf.output('arraybuffer');
+    const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+
+    // Upload PDF to storage
+    const pdfFileName = `analysis_${importId}_${new Date().toISOString()}.pdf`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('analysis_pdfs')
+      .upload(pdfFileName, pdfBlob, {
+        contentType: 'application/pdf',
+        upsert: false
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    // Create analysis report record
+    const { data: reportData, error: reportError } = await supabase
+      .from('analysis_reports')
+      .insert({
+        import_id: importId,
+        analysis_text: analysisText,
+        pdf_path: pdfFileName,
+      })
+      .select()
+      .single();
+
+    if (reportError) {
+      throw reportError;
+    }
+
+    return new Response(
+      JSON.stringify(reportData),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
     console.error('Error:', error.message);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });
