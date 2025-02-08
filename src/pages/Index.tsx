@@ -1,3 +1,4 @@
+
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -20,6 +21,7 @@ interface Transaction {
   recipient: string;
   amount: number;
   datetime: Date;
+  category?: string | null;
 }
 
 const Index = () => {
@@ -30,13 +32,39 @@ const Index = () => {
 
   const createImportMutation = useMutation({
     mutationFn: async (transactions: Transaction[]) => {
+      // First, get existing categorizations for recipients
+      const recipients = transactions.map(t => t.recipient);
+      const { data: existingCategories, error: categoriesError } = await supabase
+        .from("transactions")
+        .select("recipient, category")
+        .in("recipient", recipients)
+        .not("category", "is", null)
+        .order("created_at", { ascending: false });
+
+      if (categoriesError) throw categoriesError;
+
+      // Create a map of recipient to their most recent category
+      const recipientCategories = new Map<string, string>();
+      existingCategories?.forEach(({ recipient, category }) => {
+        if (!recipientCategories.has(recipient) && category) {
+          recipientCategories.set(recipient, category);
+        }
+      });
+
+      // Apply categories to new transactions where possible
+      const categorizedTransactions = transactions.map(t => ({
+        ...t,
+        category: recipientCategories.get(t.recipient) || null,
+      }));
+
+      // Create the import
       const { data: importData, error: importError } = await supabase
         .from("imports")
         .insert([
           {
             name: importName,
             total_count: transactions.length,
-            completed_count: 0,
+            completed_count: categorizedTransactions.filter(t => t.category !== null).length,
           },
         ])
         .select()
@@ -44,10 +72,11 @@ const Index = () => {
 
       if (importError) throw importError;
 
+      // Insert the transactions with their auto-assigned categories
       const { error: transactionsError } = await supabase
         .from("transactions")
         .insert(
-          transactions.map((t) => ({
+          categorizedTransactions.map((t) => ({
             ...t,
             import_id: importData.id,
             datetime: t.datetime.toISOString(),
@@ -55,6 +84,14 @@ const Index = () => {
         );
 
       if (transactionsError) throw transactionsError;
+
+      const autoCategorizedCount = categorizedTransactions.filter(t => t.category !== null).length;
+      if (autoCategorizedCount > 0) {
+        toast({
+          title: "Auto-categorization applied",
+          description: `${autoCategorizedCount} transaction(s) were automatically categorized based on previous data.`,
+        });
+      }
 
       return importData;
     },
