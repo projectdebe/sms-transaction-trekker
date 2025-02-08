@@ -23,15 +23,28 @@ interface TransactionChartsProps {
 
 export const TransactionCharts = ({ transactions, dateRange, setDateRange }: TransactionChartsProps) => {
   const getCategoryData = (transactions: Transaction[]) => {
-    const categoryTotals = transactions.reduce((acc: { [key: string]: number }, transaction) => {
+    const categoryData = transactions.reduce((acc: { 
+      [key: string]: { 
+        amount: number; 
+        transactions: { recipient: string; amount: number }[] 
+      } 
+    }, transaction) => {
       const category = transaction.category || 'Uncategorized';
-      acc[category] = (acc[category] || 0) + transaction.amount;
+      if (!acc[category]) {
+        acc[category] = { amount: 0, transactions: [] };
+      }
+      acc[category].amount += transaction.amount;
+      acc[category].transactions.push({
+        recipient: transaction.recipient,
+        amount: transaction.amount
+      });
       return acc;
     }, {});
 
-    return Object.entries(categoryTotals).map(([category, amount]) => ({
+    return Object.entries(categoryData).map(([category, data]) => ({
       category,
-      amount,
+      amount: data.amount,
+      transactions: data.transactions.sort((a, b) => b.amount - a.amount) // Sort by amount descending
     }));
   };
 
@@ -65,7 +78,32 @@ export const TransactionCharts = ({ transactions, dateRange, setDateRange }: Tra
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CategoryTooltip = ({ active, payload }: any) => {
+    if (!active || !payload || !payload.length) return null;
+    
+    const data = payload[0].payload;
+    const total = data.amount;
+    const transactions = data.transactions;
+
+    return (
+      <div className="bg-white p-4 border rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
+        <p className="font-semibold mb-2">{data.category}</p>
+        <p className="text-sm text-muted-foreground mb-2">
+          Total: Ksh {total.toFixed(2)}
+        </p>
+        <div className="space-y-1">
+          {transactions.map((t: { recipient: string; amount: number }, index: number) => (
+            <div key={index} className="flex justify-between text-sm">
+              <span className="text-muted-foreground mr-4">{t.recipient}:</span>
+              <span className="font-mono">Ksh {t.amount.toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const TimelineTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload || !payload.length) return null;
 
     const data = payload[0].payload;
@@ -105,9 +143,7 @@ export const TransactionCharts = ({ transactions, dateRange, setDateRange }: Tra
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="category" />
               <YAxis />
-              <Tooltip 
-                formatter={(value: number) => `Ksh ${value.toFixed(2)}`}
-              />
+              <Tooltip content={<CategoryTooltip />} />
               <Legend />
               <Bar dataKey="amount" fill="#4f46e5" name="Amount" />
             </BarChart>
@@ -121,7 +157,7 @@ export const TransactionCharts = ({ transactions, dateRange, setDateRange }: Tra
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<TimelineTooltip />} />
               <Legend />
               <Line 
                 type="monotone" 
