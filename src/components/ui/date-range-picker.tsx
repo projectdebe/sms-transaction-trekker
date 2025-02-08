@@ -1,5 +1,5 @@
 import * as React from "react"
-import { format, subDays } from "date-fns"
+import { format, subDays, startOfMonth, endOfMonth } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { cn } from "@/lib/utils"
@@ -33,8 +33,26 @@ export function DatePickerWithRange({
     "7d": "Last 7 days",
     "30d": "Last 30 days",
     "90d": "Last 90 days",
-    "custom": "Custom Range"
+    "custom": "Custom Range",
+    "month": "Select Month"
   }
+
+  const [selectedMonth, setSelectedMonth] = React.useState<string>(
+    format(new Date(), 'yyyy-MM')
+  )
+
+  const months = React.useMemo(() => {
+    const result = []
+    const today = new Date()
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      result.push({
+        value: format(date, 'yyyy-MM'),
+        label: format(date, 'MMMM yyyy')
+      })
+    }
+    return result
+  }, [])
 
   const handleRangeSelect = (value: string) => {
     const today = new Date()
@@ -57,11 +75,23 @@ export function DatePickerWithRange({
           to: today
         })
         break
+      case "month":
+        // Keep the month selection UI open but don't change the date yet
+        break
       case "custom":
         // Keep current date range if exists, otherwise set to undefined
         onDateChange(date)
         break
     }
+  }
+
+  const handleMonthSelect = (monthValue: string) => {
+    const [year, month] = monthValue.split('-').map(Number)
+    const monthDate = new Date(year, month - 1)
+    onDateChange({
+      from: startOfMonth(monthDate),
+      to: endOfMonth(monthDate)
+    })
   }
 
   return (
@@ -104,6 +134,27 @@ export function DatePickerWithRange({
                 {Object.entries(predefinedRanges).map(([value, label]) => (
                   <SelectItem key={value} value={value}>
                     {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select 
+              onValueChange={handleMonthSelect}
+              value={selectedMonth}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setSelectedMonth(format(new Date(), 'yyyy-MM'))
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a month" />
+              </SelectTrigger>
+              <SelectContent>
+                {months.map((month) => (
+                  <SelectItem key={month.value} value={month.value}>
+                    {month.label}
                   </SelectItem>
                 ))}
               </SelectContent>
