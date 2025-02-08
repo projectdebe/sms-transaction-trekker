@@ -36,18 +36,58 @@ export const TransactionCharts = ({ transactions, dateRange, setDateRange }: Tra
   };
 
   const getTimelineData = (transactions: Transaction[]) => {
-    const timelineData = transactions.reduce((acc: { [key: string]: number }, transaction) => {
+    const timelineData = transactions.reduce((acc: { [key: string]: { total: number; categories: { [key: string]: number } } }, transaction) => {
       const date = format(transaction.datetime, 'yyyy-MM-dd');
-      acc[date] = (acc[date] || 0) + transaction.amount;
+      const category = transaction.category || 'Uncategorized';
+      
+      if (!acc[date]) {
+        acc[date] = { total: 0, categories: {} };
+      }
+      
+      acc[date].total += transaction.amount;
+      acc[date].categories[category] = (acc[date].categories[category] || 0) + transaction.amount;
+      
       return acc;
     }, {});
 
     return Object.entries(timelineData)
-      .map(([date, amount]) => ({
+      .map(([date, data]) => ({
         date,
-        amount,
+        amount: data.total,
+        ...data.categories,
+        categoryBreakdown: Object.entries(data.categories)
+          .sort((a, b) => b[1] - a[1]) // Sort by amount in descending order
+          .map(([category, amount]) => ({
+            category,
+            amount,
+          })),
       }))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  };
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload || !payload.length) return null;
+
+    const data = payload[0].payload;
+    const total = data.amount;
+    const breakdown = data.categoryBreakdown;
+
+    return (
+      <div className="bg-white p-4 border rounded-lg shadow-lg">
+        <p className="font-semibold mb-2">{label}</p>
+        <p className="text-sm text-muted-foreground mb-2">
+          Total: Ksh {total.toFixed(2)}
+        </p>
+        <div className="space-y-1">
+          {breakdown.map((item: { category: string; amount: number }, index: number) => (
+            <div key={index} className="flex justify-between text-sm">
+              <span className="text-muted-foreground mr-4">{item.category}:</span>
+              <span className="font-mono">Ksh {item.amount.toFixed(2)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -81,9 +121,7 @@ export const TransactionCharts = ({ transactions, dateRange, setDateRange }: Tra
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip 
-                formatter={(value: number) => `Ksh ${value.toFixed(2)}`}
-              />
+              <Tooltip content={<CustomTooltip />} />
               <Legend />
               <Line 
                 type="monotone" 
@@ -98,3 +136,4 @@ export const TransactionCharts = ({ transactions, dateRange, setDateRange }: Tra
     </div>
   );
 };
+
