@@ -32,7 +32,7 @@ export const TransactionAnalysis = ({ transactions, importId }: TransactionAnaly
         .from('analysis_reports')
         .select('*')
         .eq('import_id', importId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
