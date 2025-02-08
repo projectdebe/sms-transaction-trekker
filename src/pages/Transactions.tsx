@@ -17,7 +17,9 @@ import {
 import { useState } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, ResponsiveContainer } from 'recharts';
-import { format } from "date-fns";
+import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
 
 type SortField = "code" | "recipient" | "amount" | "datetime" | "category";
 type SortOrder = "asc" | "desc";
@@ -41,6 +43,10 @@ const Transactions = () => {
   const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  });
   const [sortConfig, setSortConfig] = useState<{
     field: SortField;
     order: SortOrder;
@@ -169,7 +175,12 @@ const Transactions = () => {
         categoryFilter === "all" || 
         transaction.category === categoryFilter;
 
-      return matchesSearch && matchesCategory;
+      const matchesDateRange =
+        !dateRange?.from || !dateRange?.to ||
+        (transaction.datetime >= startOfDay(dateRange.from) &&
+         transaction.datetime <= endOfDay(dateRange.to));
+
+      return matchesSearch && matchesCategory && matchesDateRange;
     })
     .sort((a, b) => {
       const { field, order } = sortConfig;
@@ -236,42 +247,49 @@ const Transactions = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="p-4 border rounded-lg bg-white">
-          <h2 className="text-lg font-semibold mb-4">Spending by Category</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={getCategoryData(transactions)}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="category" />
-              <YAxis />
-              <Tooltip 
-                formatter={(value: number) => `Ksh ${value.toFixed(2)}`}
-              />
-              <Legend />
-              <Bar dataKey="amount" fill="#4f46e5" name="Amount" />
-            </BarChart>
-          </ResponsiveContainer>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Transaction Analysis</h2>
+          <DatePickerWithRange date={dateRange} onDateChange={setDateRange} />
         </div>
 
-        <div className="p-4 border rounded-lg bg-white">
-          <h2 className="text-lg font-semibold mb-4">Spending Over Time</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={getTimelineData(transactions)}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip 
-                formatter={(value: number) => `Ksh ${value.toFixed(2)}`}
-              />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="amount" 
-                stroke="#4f46e5" 
-                name="Amount"
-              />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="p-4 border rounded-lg bg-white">
+            <h2 className="text-lg font-semibold mb-4">Spending by Category</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={getCategoryData(filteredTransactions)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="category" />
+                <YAxis />
+                <Tooltip 
+                  formatter={(value: number) => `Ksh ${value.toFixed(2)}`}
+                />
+                <Legend />
+                <Bar dataKey="amount" fill="#4f46e5" name="Amount" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="p-4 border rounded-lg bg-white">
+            <h2 className="text-lg font-semibold mb-4">Spending Over Time</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={getTimelineData(filteredTransactions)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip 
+                  formatter={(value: number) => `Ksh ${value.toFixed(2)}`}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="amount" 
+                  stroke="#4f46e5" 
+                  name="Amount"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
