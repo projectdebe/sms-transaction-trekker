@@ -25,7 +25,7 @@ export const TransactionAnalysis = ({ transactions, importId }: TransactionAnaly
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
 
-  const { data: analysisReport, refetch } = useQuery({
+  const { data: analysisReport, refetch, isLoading } = useQuery({
     queryKey: ['analysis', importId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -46,20 +46,26 @@ export const TransactionAnalysis = ({ transactions, importId }: TransactionAnaly
         body: { transactions, importId },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Analysis error:', error);
+        throw error;
+      }
 
       await refetch();
       setShowAnalysis(true);
     } catch (error) {
       console.error('Analysis error:', error);
-      toast.error('Failed to analyze transactions');
+      toast.error('Failed to analyze transactions. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
   };
 
   const handleDownloadPDF = async () => {
-    if (!analysisReport?.pdf_path) return;
+    if (!analysisReport?.pdf_path) {
+      toast.error('No PDF available for download');
+      return;
+    }
 
     try {
       const { data, error } = await supabase.storage
@@ -122,7 +128,17 @@ export const TransactionAnalysis = ({ transactions, importId }: TransactionAnaly
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4 space-y-4 whitespace-pre-wrap">
-            {analysisReport?.analysis_text}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : analysisReport?.analysis_text ? (
+              analysisReport.analysis_text
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                No analysis available. Please run the analysis first.
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
