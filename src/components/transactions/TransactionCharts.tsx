@@ -1,4 +1,3 @@
-
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, ResponsiveContainer } from 'recharts';
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -86,12 +85,12 @@ export const TransactionCharts = ({ transactions, dateRange, setDateRange }: Tra
     const transactions = data.transactions;
 
     return (
-      <div className="bg-white p-4 border rounded-lg shadow-lg max-h-[300px] overflow-y-auto">
+      <div className="bg-white p-4 border rounded-lg shadow-lg max-h-[300px] overflow-auto">
         <p className="font-semibold mb-2">{data.category}</p>
         <p className="text-sm text-muted-foreground mb-2">
           Total: Ksh {total.toFixed(2)}
         </p>
-        <div className="space-y-1">
+        <div className="space-y-1 max-h-[200px] overflow-y-auto">
           {transactions.map((t: { recipient: string; amount: number }, index: number) => (
             <div key={index} className="flex justify-between text-sm">
               <span className="text-muted-foreground mr-4">{t.recipient}:</span>
@@ -111,12 +110,12 @@ export const TransactionCharts = ({ transactions, dateRange, setDateRange }: Tra
     const breakdown = data.categoryBreakdown;
 
     return (
-      <div className="bg-white p-4 border rounded-lg shadow-lg">
+      <div className="bg-white p-4 border rounded-lg shadow-lg max-h-[300px] overflow-auto">
         <p className="font-semibold mb-2">{label}</p>
         <p className="text-sm text-muted-foreground mb-2">
           Total: Ksh {total.toFixed(2)}
         </p>
-        <div className="space-y-1">
+        <div className="space-y-1 max-h-[200px] overflow-y-auto">
           {breakdown.map((item: { category: string; amount: number }, index: number) => (
             <div key={index} className="flex justify-between text-sm">
               <span className="text-muted-foreground mr-4">{item.category}:</span>
@@ -172,4 +171,3 @@ export const TransactionCharts = ({ transactions, dateRange, setDateRange }: Tra
     </div>
   );
 };
-
