@@ -45,6 +45,9 @@ export const TransactionTable = ({
   onToggleSelectAll,
   onUpdateCategory,
 }: TransactionTableProps) => {
+  // Calculate total amount
+  const total = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+
   return (
     <div className="rounded-lg border">
       <Table>
@@ -145,6 +148,15 @@ export const TransactionTable = ({
               </TableCell>
             </TableRow>
           ))}
+          {/* Total row */}
+          <TableRow className="font-medium">
+            <TableCell />
+            <TableCell>Total</TableCell>
+            <TableCell />
+            <TableCell>Ksh {total.toFixed(2)}</TableCell>
+            <TableCell />
+            <TableCell />
+          </TableRow>
         </TableBody>
       </Table>
     </div>
