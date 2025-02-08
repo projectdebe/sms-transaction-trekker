@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useParams } from "react-router-dom";
@@ -12,6 +11,7 @@ import { subDays, startOfDay, endOfDay } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { TransactionCharts } from "@/components/transactions/TransactionCharts";
 import { TransactionTable } from "@/components/transactions/TransactionTable";
+import { TransactionAnalysis } from "@/components/transactions/TransactionAnalysis";
 
 type SortField = "code" | "recipient" | "amount" | "datetime" | "category";
 type SortOrder = "asc" | "desc";
@@ -203,12 +203,13 @@ const Transactions = () => {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold">{importData?.name}</h1>
           <p className="text-muted-foreground mt-1">
             {importData?.completed_count} / {importData?.total_count} transactions categorized
           </p>
         </div>
+        <TransactionAnalysis transactions={filteredTransactions} />
       </div>
 
       <TransactionCharts 
