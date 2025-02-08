@@ -1,3 +1,4 @@
+
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, ResponsiveContainer } from 'recharts';
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -127,6 +128,8 @@ export const TransactionCharts = ({ transactions, dateRange, setDateRange }: Tra
     );
   };
 
+  const totalSpend = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -136,7 +139,12 @@ export const TransactionCharts = ({ transactions, dateRange, setDateRange }: Tra
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="p-4 border rounded-lg bg-white">
-          <h2 className="text-lg font-semibold mb-4">Spending by Category</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold">Spending by Category</h2>
+            <div className="text-sm text-muted-foreground">
+              Total Spend: <span className="font-semibold text-foreground">Ksh {totalSpend.toFixed(2)}</span>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={getCategoryData(transactions)}>
               <CartesianGrid strokeDasharray="3 3" />
