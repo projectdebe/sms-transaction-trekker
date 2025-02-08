@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import { format, subDays, startOfMonth, endOfMonth } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
@@ -30,6 +31,7 @@ export function DatePickerWithRange({
   className,
 }: DatePickerWithRangeProps) {
   const predefinedRanges = {
+    "all": "All time",
     "7d": "Last 7 days",
     "30d": "Last 30 days",
     "90d": "Last 90 days",
@@ -57,6 +59,9 @@ export function DatePickerWithRange({
   const handleRangeSelect = (value: string) => {
     const today = new Date()
     switch (value) {
+      case "all":
+        onDateChange(undefined) // Setting to undefined will show all transactions
+        break
       case "7d":
         onDateChange({
           from: subDays(today, 7),
@@ -117,7 +122,7 @@ export function DatePickerWithRange({
                 format(date.from, "LLL dd, y")
               )
             ) : (
-              <span>Pick a date range</span>
+              <span>All time</span>
             )}
           </Button>
         </PopoverTrigger>
@@ -174,3 +179,4 @@ export function DatePickerWithRange({
     </div>
   )
 }
+
