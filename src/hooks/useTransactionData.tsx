@@ -77,7 +77,8 @@ export const useTransactionData = (importId: string) => {
         .from("transactions")
         .select("*")
         .eq("import_id", importId)
-        .order("datetime", { ascending: false });
+        .order("datetime", { ascending: false })
+        .limit(2000); // Increased limit to handle all transactions
 
       if (error) {
         console.error("Error fetching transactions:", error);
