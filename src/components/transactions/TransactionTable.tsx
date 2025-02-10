@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { ArrowUpDown } from "lucide-react";
 
 interface Category {
@@ -17,6 +18,7 @@ interface Transaction {
   amount: number;
   datetime: Date;
   category?: string | null;
+  notes?: string | null;
   import_id?: string | null;
   user_id?: string | null;
 }
@@ -45,7 +47,6 @@ export const TransactionTable = ({
   onToggleSelectAll,
   onUpdateCategory,
 }: TransactionTableProps) => {
-  // Calculate total amount
   const total = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
 
   return (
@@ -109,6 +110,7 @@ export const TransactionTable = ({
                 <ArrowUpDown className="h-4 w-4" />
               </Button>
             </TableHead>
+            <TableHead>Notes</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -146,14 +148,26 @@ export const TransactionTable = ({
                   </SelectContent>
                 </Select>
               </TableCell>
+              <TableCell>
+                <Input
+                  value={transaction.notes || ''}
+                  onChange={(e) => {
+                    if (transaction.id) {
+                      onUpdateNotes(transaction.id, e.target.value);
+                    }
+                  }}
+                  placeholder="Add notes..."
+                  className="w-full"
+                />
+              </TableCell>
             </TableRow>
           ))}
-          {/* Total row */}
           <TableRow className="font-medium">
             <TableCell />
             <TableCell>Total</TableCell>
             <TableCell />
             <TableCell>Ksh {total.toFixed(2)}</TableCell>
+            <TableCell />
             <TableCell />
             <TableCell />
           </TableRow>

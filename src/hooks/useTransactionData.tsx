@@ -16,6 +16,7 @@ export interface Transaction {
   amount: number;
   datetime: Date;
   category?: string | null;
+  notes?: string | null;
   import_id?: string | null;
   user_id?: string | null;
 }
@@ -26,7 +27,7 @@ export const useTransactionData = (importId: string) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 90), // Changed from 30 to 90 days
+    from: subDays(new Date(), 90),
     to: new Date(),
   });
   const [sortConfig, setSortConfig] = useState<{
@@ -94,11 +95,17 @@ export const useTransactionData = (importId: string) => {
   });
 
   const updateTransactionMutation = useMutation({
-    mutationFn: async ({ ids, category }: { ids: string[]; category: string }) => {
-      console.log("Updating transactions:", { ids, category });
+    mutationFn: async ({ 
+      ids, 
+      updates 
+    }: { 
+      ids: string[]; 
+      updates: Partial<Pick<Transaction, 'category' | 'notes'>>
+    }) => {
+      console.log("Updating transactions:", { ids, updates });
       const { error } = await supabase
         .from("transactions")
-        .update({ category })
+        .update(updates)
         .in('id', ids);
 
       if (error) {
@@ -111,14 +118,14 @@ export const useTransactionData = (importId: string) => {
       queryClient.invalidateQueries({ queryKey: ["imports"] });
       toast({
         title: "Success",
-        description: `Updated category for ${selectedTransactions.length} transaction(s)`,
+        description: `Updated ${selectedTransactions.length} transaction(s)`,
       });
       setSelectedTransactions([]);
     },
     onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to update transaction categories",
+        description: "Failed to update transactions",
         variant: "destructive",
       });
       console.error("Error updating transactions:", error);

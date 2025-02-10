@@ -95,6 +95,7 @@ export type Database = {
           datetime: string
           id: string
           import_id: string | null
+          notes: string | null
           recipient: string
           user_id: string | null
         }
@@ -106,6 +107,7 @@ export type Database = {
           datetime: string
           id?: string
           import_id?: string | null
+          notes?: string | null
           recipient: string
           user_id?: string | null
         }
@@ -117,6 +119,7 @@ export type Database = {
           datetime?: string
           id?: string
           import_id?: string | null
+          notes?: string | null
           recipient?: string
           user_id?: string | null
         }

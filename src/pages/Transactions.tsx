@@ -1,4 +1,3 @@
-
 import { useParams } from "react-router-dom";
 import { startOfDay, endOfDay } from "date-fns";
 import { TransactionCharts } from "@/components/transactions/TransactionCharts";
@@ -40,7 +39,17 @@ const Transactions = () => {
       });
       return;
     }
-    updateTransactionMutation.mutate({ ids: selectedIds, category });
+    updateTransactionMutation.mutate({ 
+      ids: selectedIds, 
+      updates: { category } 
+    });
+  };
+
+  const handleUpdateNotes = (id: string, notes: string) => {
+    updateTransactionMutation.mutate({ 
+      ids: [id], 
+      updates: { notes } 
+    });
   };
 
   const toggleSelectAll = (filteredTransactions: any[]) => {
@@ -144,8 +153,9 @@ const Transactions = () => {
           onToggleSelect={toggleSelect}
           onToggleSelectAll={() => toggleSelectAll(filteredTransactions)}
           onUpdateCategory={(ids, category) => 
-            updateTransactionMutation.mutate({ ids, category })
+            updateTransactionMutation.mutate({ ids, updates: { category } })
           }
+          onUpdateNotes={handleUpdateNotes}
         />
       </div>
     </div>
