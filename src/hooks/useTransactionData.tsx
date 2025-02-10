@@ -26,7 +26,7 @@ export const useTransactionData = (importId: string) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 30),
+    from: subDays(new Date(), 90), // Changed from 30 to 90 days
     to: new Date(),
   });
   const [sortConfig, setSortConfig] = useState<{
@@ -78,7 +78,7 @@ export const useTransactionData = (importId: string) => {
         .select("*")
         .eq("import_id", importId)
         .order("datetime", { ascending: false })
-        .limit(2000); // Increased limit to handle all transactions
+        .limit(2000);
 
       if (error) {
         console.error("Error fetching transactions:", error);
