@@ -43,7 +43,11 @@ export const useTransactionData = (importId: string) => {
         .eq("id", importId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching import:", error);
+        throw error;
+      }
+      console.log("Import data:", data);
       return data;
     },
   });
@@ -56,7 +60,11 @@ export const useTransactionData = (importId: string) => {
         .select("id, name")
         .order("name");
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching categories:", error);
+        throw error;
+      }
+      console.log("Categories:", data);
       return data;
     },
   });
@@ -64,13 +72,19 @@ export const useTransactionData = (importId: string) => {
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions", importId],
     queryFn: async () => {
+      console.log("Fetching transactions for import:", importId);
       const { data, error } = await supabase
         .from("transactions")
         .select("*")
         .eq("import_id", importId)
         .order("datetime", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching transactions:", error);
+        throw error;
+      }
+      console.log("Transactions count:", data?.length);
+      console.log("First few transactions:", data?.slice(0, 3));
       return data.map((t: any) => ({
         ...t,
         datetime: new Date(t.datetime),
@@ -80,12 +94,16 @@ export const useTransactionData = (importId: string) => {
 
   const updateTransactionMutation = useMutation({
     mutationFn: async ({ ids, category }: { ids: string[]; category: string }) => {
+      console.log("Updating transactions:", { ids, category });
       const { error } = await supabase
         .from("transactions")
         .update({ category })
         .in('id', ids);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating transactions:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
